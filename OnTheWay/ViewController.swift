@@ -40,6 +40,12 @@ class ViewController: UIViewController, UITextFieldDelegate {
     //MARK: Actions
     
     @IBAction func findRestaurants(sender: UIButton) {
+        var origin = originTextField.text
+        var destination = destinationTextField.text
+        let apiKey = "AIzaSyArzY347-HP7GBN5mxRIVOYf9YXZUqQTZU"
+        
+        var googleDirectionsRequest = "https://maps.googleapis.com/maps/api/directions/json?origin=" + origin + "Disneyland&" + destination + "=Universal+Studios+Hollywood4&key=" + apiKey
+        
     }
 
 }
