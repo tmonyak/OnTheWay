@@ -123,10 +123,6 @@ class Search extends Component {
         return Math.round(R * c);
     }
 
-    getPolyline() {
-
-    }
-
     search() {
         let origin = null;
         let radius = 3200; //2 miles
@@ -149,13 +145,13 @@ class Search extends Component {
             for (var index = 0; index<points.length; index++) {
                 var latitude = points[index][0];
                 var longitude = points[index][1];
-                if (this.distanceBetween(latitude, longitude, lastLatitude, lastLongitude) >= 3200) {
+                if (this.distanceBetween(latitude, longitude, lastLatitude, lastLongitude) >= 6400) {
                     lastLatitude = latitude;
                     lastLongitude = longitude;
                     var latlng = "ll=" + String(latitude) + "," + String(longitude);
                     var rad = "&radius_filter=" + radius;
                     //add open at parameter to check if it'll be open when you get there
-                    fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=1" + "&radius=3200",
+                    fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=3" + "&radius=3200",
                         {
                             method: "GET",
                             headers: {
@@ -173,30 +169,21 @@ class Search extends Component {
                                 "name": yelpResult.businesses[i].name,
                                 "distanceFromRoad": this.distanceBetween(latitude, longitude, yelpResult.businesses[i].coordinates.latitude, yelpResult.businesses[i].coordinates.longitude),
                                 "city": yelpResult.businesses[i].location.city + ', ' + yelpResult.businesses[i].location.state,
-                                "distance": ind + "away",//matrixResult.rows[0].elements[0].duration.text + " away",
-                                "seconds": yelpResult.businesses[i].name,
                             }
-
-                                //binaryInsert(newListing, listings, 0, listings.length - 1);
-                                listings.push(newListing);
-                                this.setState({
-                                    dataSource: ds.cloneWithRows(listings),
-                                })
-
-                            /*fetch(googleMatrixAPI)
+                            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + yelpResult.businesses[i].coordinates.latitude + "," + yelpResult.businesses[i].coordinates.longitude + "&departure_time=now&key=" + googleMatrixAPIKey;
+                            fetch(googleMatrixAPI)
                             .then((matrixResponse) => matrixResponse.json())
                             .then((matrixResult) => {
                                 //duration.value expressed in seconds, maybe make it so you can search within a range
-                                console.log(city)
-
-
-                            });*/
-
+                                newListing.distance = matrixResult.rows[0].elements[0].duration.text + " away";
+                                newListing.seconds = matrixResult.rows[0].elements[0].duration.value;
+                                binaryInsert(newListing, listings, 0, listings.length - 1);
+                                this.setState({
+                                    dataSource: ds.cloneWithRows(listings),
+                                })
+                            });
                         }
                     })
-                    .then((bar) => {
-
-                    });
                 }
             }
         });
