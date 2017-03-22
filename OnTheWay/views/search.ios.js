@@ -93,7 +93,8 @@ class Search extends Component {
             useCurrentLocation: false,
             dataSource: ds.cloneWithRows([]),
             origin: '',
-            destination: ''
+            destination: '',
+            currentLocation: null,
         }
     }
 
@@ -102,7 +103,9 @@ class Search extends Component {
             this.setState ({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
+                currentLocation: {description: 'Current Location', geometry: { location: { lat: position.coords.latitude, lng: position.coords.longitude } }},
                 });
+                this.render();
             },
             (error) => null,
             {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000}
@@ -181,12 +184,15 @@ class Search extends Component {
                                 this.setState({
                                     dataSource: ds.cloneWithRows(listings),
                                 })
-                            });
+                            })
+                            .catch((error) => null);
                         }
                     })
+                    .catch((error) => null);
                 }
             }
-        });
+        })
+        .catch((error) => null);
     }
 
     render () {
@@ -217,7 +223,7 @@ class Search extends Component {
           // available options: https://developers.google.com/places/web-service/autocomplete
           key: googleAPIKey,
           language: 'en', // language of the results
-          types: '(cities)', // default: 'geocode'
+          //types: '(cities)', // default: 'geocode'
         }}
         styles={{
           description: {
@@ -233,21 +239,19 @@ class Search extends Component {
           },
         }}
 
-        currentLocation={true} // Will add a 'Current location' button at the top of the predefined places list
+        currentLocation={false} // Will add a 'Current location' button at the top of the predefined places list
         currentLocationLabel="Current Location"
         nearbyPlacesAPI='GooglePlacesSearch' // Which API to use: GoogleReverseGeocoding or GooglePlacesSearch
         GoogleReverseGeocodingQuery={{
-          key: this.googlePlacesAPIKey,
-          latlng: this.state.latitude + ',' + this.state.longitude,
         }}
         GooglePlacesSearchQuery={{
           // available options for GooglePlacesSearch API : https://developers.google.com/places/web-service/search
           rankby: 'distance',
-          types: 'food',
         }}
+    //    predefinedPlaces={[this.state.currentLocation]}
 
 
-        filterReverseGeocodingByTypes={['locality', 'administrative_area_level_3']} // filter the reverse geocoding results by types - ['locality', 'administrative_area_level_3'] if you want to display only cities
+        //filterReverseGeocodingByTypes={['locality', 'administrative_area_level_3']} // filter the reverse geocoding results by types - ['locality', 'administrative_area_level_3'] if you want to display only cities
 
         debounce={200} // debounce the requests in ms. Set to 0 to remove debounce. By default 200ms.
       />
@@ -270,7 +274,7 @@ class Search extends Component {
      // available options: https://developers.google.com/places/web-service/autocomplete
      key: googleAPIKey,
      language: 'en', // language of the results
-     types: '(cities)', // default: 'geocode'
+     //types: '(cities)', // default: 'geocode'
    }}
    styles={{
      description: {
@@ -293,11 +297,10 @@ class Search extends Component {
    GooglePlacesSearchQuery={{
      // available options for GooglePlacesSearch API : https://developers.google.com/places/web-service/search
      rankby: 'distance',
-     types: 'food',
    }}
 
 
-   filterReverseGeocodingByTypes={['locality', 'administrative_area_level_3']} // filter the reverse geocoding results by types - ['locality', 'administrative_area_level_3'] if you want to display only cities
+   //filterReverseGeocodingByTypes={['locality', 'administrative_area_level_3']} // filter the reverse geocoding results by types - ['locality', 'administrative_area_level_3'] if you want to display only cities
 
    debounce={200} // debounce the requests in ms. Set to 0 to remove debounce. By default 200ms.
  />
