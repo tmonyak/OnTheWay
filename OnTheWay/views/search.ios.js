@@ -126,7 +126,7 @@ class Search extends Component {
     search() {
         let origin = null;
         let radius = 3200; //2 miles
-        if (this.state.useCurrentLocation == true) {
+        if (false) {
             origin = this.state.latitude + ',' + this.state.longitude
         } else {
             origin = 'SanFrancisco,CA';
@@ -170,7 +170,7 @@ class Search extends Component {
                                 "distanceFromRoad": this.distanceBetween(latitude, longitude, yelpResult.businesses[i].coordinates.latitude, yelpResult.businesses[i].coordinates.longitude),
                                 "city": yelpResult.businesses[i].location.city + ', ' + yelpResult.businesses[i].location.state,
                             }
-                            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + yelpResult.businesses[i].coordinates.latitude + "," + yelpResult.businesses[i].coordinates.longitude + "&departure_time=now&key=" + googleMatrixAPIKey;
+                            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + yelpResult.businesses[i].coordinates.latitude + "," + yelpResult.businesses[i].coordinates.longitude + "&key=" + googleMatrixAPIKey;
                             fetch(googleMatrixAPI)
                             .then((matrixResponse) => matrixResponse.json())
                             .then((matrixResult) => {
@@ -204,7 +204,7 @@ class Search extends Component {
         autoFocus={false}
         listViewDisplayed='auto'    // true/false/undefined
         fetchDetails={true}
-        renderDescription={(row) => row.description} // custom description render
+        renderDescription={(row) => row.description || row.vicinity} // custom description render
         onPress={(data, details = null) => { // 'details' is provided when fetchDetails = true
           this.setState({
               origin: data,
