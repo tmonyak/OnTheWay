@@ -23,18 +23,51 @@ var polyline = require('@mapbox/polyline');
 var googleAPIURL = 'https://maps.googleapis.com/maps/api/directions/json?';
 var googleAPIKey = 'AIzaSyAfDs-3kqizJ3lMrCsZ5dYZpsAOOZz8dkA';
 var googlePlacesAPIKey = 'AIzaSyCijqr9wsl19EnBxdZbJz00zJoyhIMIla8';
-
-var yelpAPIURL = 'https://api.yelp.com/v2/search';
-var yelpConsumerKey	= 'nkiyebEprDAa_GC6TT5L5g';
-var yelpConsumerSecret = 'XqYls7BGA_GJOKn6I3900CTB1ko';
-var yelpToken = '-p9bLMHtgE9a5ARyW6wlDJuejD6egddU';
-var yelpTokenSecret = 'eyjhyDOhKPbpqi7tKuv_ZnmuSwA';
+var googleMatrixAPIKey = 'AIzaSyB4AwHliJnJ98gxgAhtvS18D5Km1brqXeE';
+var googleMatrixAPIURL = 'https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=';
 
 var yelpAppID = 'TZCkdTTqoL-_5TA99Xe82A';
 var yelpAccessToken = 'P68aCZBr2U3m5xJgy0LqUpo0wqEmGb7toawLPKVHEuFHj0gFvieQ_QumxySy11OJy3WaFPNG6nVbHOB_6OoPCw50XxrWmm37CPhcLguZ_CBIqaNBWh9ayhdOJOrRWHYx';
 var yelpTokenType = 'Bearer';
 
 const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
+
+function binaryInsert(newElement, array, startVal, endVal){
+
+	var length = array.length;
+	var start = typeof(startVal) != 'undefined' ? startVal : 0;
+	var end = typeof(endVal) != 'undefined' ? endVal : length - 1;//!! endVal could be 0 don't use || syntax
+	var m = start + Math.floor((end - start)/2);
+
+	if(length == 0){
+		array.push(newElement);
+		return;
+	}
+
+	if(newElement.seconds > array[end].seconds){
+		array.splice(end + 1, 0, newElement);
+		return;
+	}
+
+	if(newElement.seconds < array[start].seconds){//!!
+		array.splice(start, 0, newElement);
+		return;
+	}
+
+	if(start >= end){
+		return;
+	}
+
+	if(newElement.seconds < array[m].seconds){
+		binaryInsert(newElement, array, start, m - 1);
+		return;
+	}
+
+	if(newElement.seconds >= array[m].seconds){
+		binaryInsert(newElement, array, m + 1, end);
+		return;
+	}
+}
 
 var styles = StyleSheet.create({
     list: {
@@ -44,7 +77,7 @@ var styles = StyleSheet.create({
     },
 
     item: {
-        marginLeft: 50,
+        marginLeft: 20,
         paddingTop: 10
     }
 
@@ -90,18 +123,21 @@ class Search extends Component {
         return Math.round(R * c);
     }
 
+    getPolyline() {
+
+    }
+
     search() {
         let origin = null;
         let radius = 3200; //2 miles
         if (this.state.useCurrentLocation == true) {
             origin = this.state.latitude + ',' + this.state.longitude
         } else {
-            origin = 'LosAngeles,CA';
+            origin = 'SanFrancisco,CA';
         }
-        var destination = 'SanFrancisco,CA';
+        var destination = 'SanDiego,CA';
         var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&key=' + googleAPIKey;
 
-        var oauth = new OAuthSimple(yelpConsumerKey, yelpTokenSecret);
         let lastLatitude = -79.026584;
         let lastLongitude = 68.966806;
         var listings = [];
@@ -109,6 +145,7 @@ class Search extends Component {
         .then((response) => response.json())
         .then((result) => {
             var points = polyline.decode(result.routes[0].overview_polyline.points);
+            let ind = 0;
             for (var index = 0; index<points.length; index++) {
                 var latitude = points[index][0];
                 var longitude = points[index][1];
@@ -117,6 +154,7 @@ class Search extends Component {
                     lastLongitude = longitude;
                     var latlng = "ll=" + String(latitude) + "," + String(longitude);
                     var rad = "&radius_filter=" + radius;
+                    //add open at parameter to check if it'll be open when you get there
                     fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=1" + "&radius=3200",
                         {
                             method: "GET",
@@ -127,39 +165,47 @@ class Search extends Component {
                     )
                     .then((response) => response.json())
                     .then((yelpResult) => {
-                        //check if is_closed == True (means closed permanentyl)
                         for(var i = 0; i<yelpResult.businesses.length; i++) {
-                            let busLatitude = yelpResult.businesses[i].coordinates.latitude;
-                            let busLongitude = yelpResult.businesses[i].coordinates.longitude;
-                            let distance = this.distanceBetween(latitude, longitude, busLatitude, busLongitude);
-                            console.log(yelpResult.businesses[i].name)
-                            console.log(latitude + "," + longitude)
-
-                            listings.push({
-                                "pair": latitude + "," + longitude,
+                            if (yelpResult.businesses[i].is_closed == true) {
+                                continue;
+                            }
+                            let newListing = {
                                 "name": yelpResult.businesses[i].name,
-                                "distance": distance,
-                                "city": yelpResult.businesses[i].location.city + ',' + yelpResult.businesses[i].location.state,
-                            });
+                                "distanceFromRoad": this.distanceBetween(latitude, longitude, yelpResult.businesses[i].coordinates.latitude, yelpResult.businesses[i].coordinates.longitude),
+                                "city": yelpResult.businesses[i].location.city + ', ' + yelpResult.businesses[i].location.state,
+                                "distance": ind + "away",//matrixResult.rows[0].elements[0].duration.text + " away",
+                                "seconds": yelpResult.businesses[i].name,
+                            }
+
+                                //binaryInsert(newListing, listings, 0, listings.length - 1);
+                                listings.push(newListing);
+                                this.setState({
+                                    dataSource: ds.cloneWithRows(listings),
+                                })
+
+                            /*fetch(googleMatrixAPI)
+                            .then((matrixResponse) => matrixResponse.json())
+                            .then((matrixResult) => {
+                                //duration.value expressed in seconds, maybe make it so you can search within a range
+                                console.log(city)
+
+
+                            });*/
+
                         }
                     })
-                    .then((something) => {
-                        this.setState({
-                            dataSource: ds.cloneWithRows(listings),
-                        })
+                    .then((bar) => {
+
                     });
                 }
             }
         });
-        this.setState({
-            dataSource: ds.cloneWithRows(listings),
-        })
     }
 
     render () {
         return (
            <Container>
-           <Header style= {{paddingTop: 30, backgroundColor: '#5d0dbf'}}>
+           <Header style= {{paddingTop: 30, backgroundColor: '#c67019'}}>
               <Title style={{color: 'white'}}>Search</Title>
            </Header>
 
@@ -270,7 +316,7 @@ class Search extends Component {
  />
            <Button block
            onPress = {() => this.search()}
-           style={{backgroundColor: '#5d0dbf', marginRight: 10, marginLeft: 10}}>
+           style={{backgroundColor: '#c67019', marginRight: 10, marginLeft: 10}}>
                <Text style={{color: 'white', fontSize: 18}}> Find Stuff </Text>
            </Button>
            <View>
@@ -285,6 +331,9 @@ class Search extends Component {
                 </Text>
                 <Text>
                     {rowData.city}
+                </Text>
+                <Text>
+                    {rowData.distance}
                 </Text>
                </View>
                </TouchableHighlight>
