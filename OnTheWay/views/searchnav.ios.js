@@ -8,6 +8,7 @@ import {
 
 
 import Search from './../views/search.ios';
+import Results from './../views/results.ios';
 
 var styles = StyleSheet.create({
   container: {
@@ -19,7 +20,7 @@ var styles = StyleSheet.create({
   }
 });
 
-class SearchNav  extends Component {
+class SearchNav extends Component {
 
     constructor(props) {
         super(props);
@@ -28,13 +29,13 @@ class SearchNav  extends Component {
     renderScene(route, navigator) {
         if (route.name == 'Search') {
             return <Search navigator={navigator} route={route} {...route.passProps} />
-        } else if (route.name == 'Details') {
-            return <Details navigator={navigator} route={route} {...route.passProps} />
+        } else if (route.name == 'Results') {
+            return <Results navigator={navigator} route={route} {...route.passProps} />
         }
     }
 
     configureScene(route, routeStack){
-       return Navigator.SceneConfigs.FloatFromBottom
+       return Navigator.SceneConfigs.FloatFromRight
     }
 
     render() {

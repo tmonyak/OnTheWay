@@ -12,9 +12,6 @@ import {
 
 import { Content, Container, Header, InputGroup, Input, Icon, Button, Thumbnail, Card, CardItem, Title, Spinner } from 'native-base';
 
-import OAuthSimple from 'oauthsimple';
-
-
 import DefaultTheme from './../themes/theme';
 
 var {GooglePlacesAutocomplete} = require('react-native-google-places-autocomplete');
@@ -30,58 +27,36 @@ var yelpAppID = 'TZCkdTTqoL-_5TA99Xe82A';
 var yelpAccessToken = 'P68aCZBr2U3m5xJgy0LqUpo0wqEmGb7toawLPKVHEuFHj0gFvieQ_QumxySy11OJy3WaFPNG6nVbHOB_6OoPCw50XxrWmm37CPhcLguZ_CBIqaNBWh9ayhdOJOrRWHYx';
 var yelpTokenType = 'Bearer';
 
-const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
-
 function binaryInsert(newElement, array, startVal, endVal){
+    var length = array.length;
+    var start = typeof(startVal) != 'undefined' ? startVal : 0;
+    var end = typeof(endVal) != 'undefined' ? endVal : length - 1;//!! endVal could be 0 don't use || syntax
+    var m = start + Math.floor((end - start)/2);
 
-	var length = array.length;
-	var start = typeof(startVal) != 'undefined' ? startVal : 0;
-	var end = typeof(endVal) != 'undefined' ? endVal : length - 1;//!! endVal could be 0 don't use || syntax
-	var m = start + Math.floor((end - start)/2);
-
-	if(length == 0){
-		array.push(newElement);
-		return;
-	}
-
-	if(newElement.seconds > array[end].seconds){
-		array.splice(end + 1, 0, newElement);
-		return;
-	}
-
-	if(newElement.seconds < array[start].seconds){//!!
-		array.splice(start, 0, newElement);
-		return;
-	}
-
-	if(start >= end){
-		return;
-	}
-
-	if(newElement.seconds < array[m].seconds){
-		binaryInsert(newElement, array, start, m - 1);
-		return;
-	}
-
-	if(newElement.seconds >= array[m].seconds){
-		binaryInsert(newElement, array, m + 1, end);
-		return;
-	}
-}
-
-var styles = StyleSheet.create({
-    list: {
-        justifyContent: 'center',
-        flexDirection: 'row',
-        flexWrap: 'wrap'
-    },
-
-    item: {
-        marginLeft: 20,
-        paddingTop: 10
+    if(length == 0){
+        array.push(newElement);
+        return;
     }
-
-});
+    if(newElement.seconds > array[end].seconds){
+        array.splice(end + 1, 0, newElement);
+        return;
+    }
+    if(newElement.seconds < array[start].seconds){//!!
+        array.splice(start, 0, newElement);
+        return;
+    }
+    if(start >= end){
+        return;
+    }
+    if(newElement.seconds < array[m].seconds){
+        binaryInsert(newElement, array, start, m - 1);
+        return;
+    }
+    if(newElement.seconds >= array[m].seconds){
+        binaryInsert(newElement, array, m + 1, end);
+        return;
+    }
+}
 
 class Search extends Component {
     constructor(props) {
@@ -89,12 +64,10 @@ class Search extends Component {
         this.state = {
             latitude: null,
             longitude: null,
-            results: null,
             useCurrentLocation: false,
-            dataSource: ds.cloneWithRows([]),
             origin: '',
             destination: '',
-            currentLocation: null,
+            currentLocation: null
         }
     }
 
@@ -126,9 +99,19 @@ class Search extends Component {
         return Math.round(R * c);
     }
 
+    showResults(_listings) {
+        this.props.navigator.push({
+            name: 'Results',
+            passProps: {
+                listings: _listings,
+            }
+        })
+    }
+
     search() {
         let origin = null;
         let radius = 3200; //2 miles
+        let tempInd = 0;
         if (false) {
             origin = this.state.latitude + ',' + this.state.longitude
         } else {
@@ -136,15 +119,14 @@ class Search extends Component {
         }
         var destination = 'SanDiego,CA';
         var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&key=' + googleAPIKey;
-
         let lastLatitude = -79.026584;
         let lastLongitude = 68.966806;
-        var listings = [];
+        let listings = [];
         fetch(googleAPI)
         .then((response) => response.json())
         .then((result) => {
+            var promises = [];
             var points = polyline.decode(result.routes[0].overview_polyline.points);
-            let ind = 0;
             for (var index = 0; index<points.length; index++) {
                 var latitude = points[index][0];
                 var longitude = points[index][1];
@@ -154,6 +136,7 @@ class Search extends Component {
                     var latlng = "ll=" + String(latitude) + "," + String(longitude);
                     var rad = "&radius_filter=" + radius;
                     //add open at parameter to check if it'll be open when you get there
+                    promises.push(
                     fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=3" + "&radius=3200",
                         {
                             method: "GET",
@@ -161,44 +144,59 @@ class Search extends Component {
                                 'Authorization': 'Bearer ' + yelpAccessToken,
                             },
                         }
-                    )
-                    .then((response) => response.json())
-                    .then((yelpResult) => {
-                        for(var i = 0; i<yelpResult.businesses.length; i++) {
-                            if (yelpResult.businesses[i].is_closed == true) {
-                                continue;
-                            }
-                            let newListing = {
-                                "name": yelpResult.businesses[i].name,
-                                "distanceFromRoad": this.distanceBetween(latitude, longitude, yelpResult.businesses[i].coordinates.latitude, yelpResult.businesses[i].coordinates.longitude),
-                                "city": yelpResult.businesses[i].location.city + ', ' + yelpResult.businesses[i].location.state,
-                            }
-                            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + yelpResult.businesses[i].coordinates.latitude + "," + yelpResult.businesses[i].coordinates.longitude + "&key=" + googleMatrixAPIKey;
-                            fetch(googleMatrixAPI)
-                            .then((matrixResponse) => matrixResponse.json())
-                            .then((matrixResult) => {
-                                //duration.value expressed in seconds, maybe make it so you can search within a range
-                                newListing.distance = matrixResult.rows[0].elements[0].duration.text + " away";
-                                newListing.seconds = matrixResult.rows[0].elements[0].duration.value;
-                                binaryInsert(newListing, listings, 0, listings.length - 1);
-                                this.setState({
-                                    dataSource: ds.cloneWithRows(listings),
-                                })
-                            })
-                            .catch((error) => null);
-                        }
-                    })
-                    .catch((error) => null);
+                    ));
                 }
             }
+            return promises;
         })
-        .catch((error) => null);
+        .then((promises) => {
+            Promise.all(promises)
+            .then((responses) => {
+                var matrixPromises = [];
+                for (var j = 0; j < responses.length; j++) {
+                    var yelpResult = JSON.parse(responses[j]._bodyInit);
+                    for(var i = 0; i<yelpResult.businesses.length; i++) {
+                        if (yelpResult.businesses[i].is_closed == true) {
+                            continue;
+                        }
+                        let newListing = {
+                            "name": yelpResult.businesses[i].name,
+                            "city": yelpResult.businesses[i].location.city + ', ' + yelpResult.businesses[i].location.state,
+                            "url": yelpResult.businesses[i].url,
+                        }
+                        listings.push(newListing);
+
+                        var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + yelpResult.businesses[i].coordinates.latitude + "," + yelpResult.businesses[i].coordinates.longitude + "&key=" + googleMatrixAPIKey;
+                        matrixPromises.push(fetch(googleMatrixAPI));
+                    }
+                }
+                return matrixPromises;
+            })
+            .then((matrixPromises) => {
+                var sortedListings = [];
+                Promise.all(matrixPromises)
+                .then((matrixResponses) => {
+                    for (var k = 0; k<matrixResponses.length; k++) {
+                        var matrixResult = JSON.parse(matrixResponses[k]._bodyInit);
+                        listings[k].distance = matrixResult.rows[0].elements[0].duration.text + " away";
+                        listings[k].seconds = matrixResult.rows[0].elements[0].duration.value;
+                        binaryInsert(listings[k], sortedListings, 0, sortedListings.length - 1);
+                    }
+                })
+                .done(() => {
+                    this.showResults(sortedListings);
+                });;
+            })
+            .done();
+
+        })
+        .done();
     }
 
     render () {
         return (
            <Container>
-           <Header style= {{paddingTop: 30, backgroundColor: '#c67019'}}>
+           <Header style= {{paddingTop: 30, backgroundColor: '#9b1706'}}>
               <Title style={{color: 'white'}}>Search</Title>
            </Header>
 
@@ -306,30 +304,9 @@ class Search extends Component {
  />
            <Button block
            onPress = {() => this.search()}
-           style={{backgroundColor: '#c67019', marginRight: 10, marginLeft: 10}}>
+           style={{backgroundColor: '#9b1706', marginRight: 10, marginLeft: 10}}>
                <Text style={{color: 'white', fontSize: 18}}> Find Stuff </Text>
            </Button>
-           <View>
-               <ListView
-                dataSource={this.state.dataSource}
-                enableEmptySections={true}
-                renderRow={(rowData) =>  <View style={styles.item}>
-                <TouchableHighlight onPress={() => Linking.openURL(rowData.url)} >
-               <View>
-               <Text style={{fontSize: 20}}>
-                 {rowData.name}
-                </Text>
-                <Text>
-                    {rowData.city}
-                </Text>
-                <Text>
-                    {rowData.distance}
-                </Text>
-               </View>
-               </TouchableHighlight>
-                </View>}
-                />
-           </View>
 
            </Content>
        </Container>
