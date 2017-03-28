@@ -127,9 +127,9 @@ class ChooseRoute extends Component {
     getYelpListings(_polyline) {
         let lastLatitude = -79.026584;
         let lastLongitude = 68.966806;
-        let radius = 3200; //1.5 miles
+        let radius = 2400; //1.5 miles
         let limit = 1;
-        let listings = new Map();
+        let listings = {};
         var promises = [];
         var points = polyline.decode(_polyline);
         for (var index = 0; index<points.length; index++) {
@@ -138,11 +138,9 @@ class ChooseRoute extends Component {
             if (this.distanceBetween(latitude, longitude, lastLatitude, lastLongitude) >= radius) {
                 lastLatitude = latitude;
                 lastLongitude = longitude;
-                var rad = "&radius=" + radius;
-                var lim = "&limit=" + limit;
                 //add open at parameter to check if it'll be open when you get there
                 promises.push(
-                fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + lim + radius,
+                fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=1" + "&radius=2400",
                     {
                         method: "GET",
                         headers: {
@@ -159,7 +157,7 @@ class ChooseRoute extends Component {
                 for (var j = 0; j < responses.length; j++) {
                     var yelpResult = JSON.parse(responses[j]._bodyInit);
                     for(var i = 0; i<yelpResult.businesses.length; i++) {
-                        if (yelpResult.businesses[i].is_closed == true || listings.has(yelpResult.businesses[i].id)) {
+                        if (yelpResult.businesses[i].is_closed == true || yelpResult.businesses[i].id in listings) {
                             continue;
                         }
                         let newListing = {
@@ -171,13 +169,17 @@ class ChooseRoute extends Component {
                             "categories": yelpResult.businesses[i].categories,
                             "rating": yelpResult.businesses[i].rating,
                         }
-                        listings.set(yelpResult.businesses[i].id, newListing);
+                        listings[yelpResult.businesses[i].id] = newListing;
                         //listings.push(newListing);
                     }
                 }
             })
             .done(() => {
-                resolve(listings.values());
+                var results = [];
+                for (var id in listings) {
+                    results.push(listings[id]);
+                }
+                resolve(results);
             });
         });
     }
