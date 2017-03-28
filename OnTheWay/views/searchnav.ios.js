@@ -9,6 +9,7 @@ import {
 
 import Search from './../views/search.ios';
 import Results from './../views/results.ios';
+import ChooseRoute from './../views/chooseroute.ios';
 
 var styles = StyleSheet.create({
   container: {
@@ -31,6 +32,8 @@ class SearchNav extends Component {
             return <Search navigator={navigator} route={route} {...route.passProps} />
         } else if (route.name == 'Results') {
             return <Results navigator={navigator} route={route} {...route.passProps} />
+        } else if (route.name == 'ChooseRoute') {
+            return <ChooseRoute navigator={navigator} route={route} {...route.passProps} />
         }
     }
 

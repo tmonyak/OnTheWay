@@ -108,48 +108,66 @@ class Search extends Component {
         })
     }
 
-    search() {
-        let origin = null;
-        let radius = 3200; //2 miles
-        let tempInd = 0;
-        if (false) {
-            origin = this.state.latitude + ',' + this.state.longitude
-        } else {
-            origin = 'SanFrancisco,CA';
+    /*chooseRoute(_googleMapsResponse) {
+        this.props.navigator.push({
+            name: 'ChooseRoute',
+            passProps: {
+                googleMapsJson: _googleMapsResponse,
+            }
+        })
+    }*/
+
+    getGoogleDistances(_yelpListings) {
+        var matrixPromises = [];
+        var sortedListings = [];
+        for (var j = 0; j < _yelpListings.length; j++) {
+            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + _yelpListings[j].latitude + "," + _yelpListings[j].longitude + "&key=" + googleMatrixAPIKey;
+            matrixPromises.push(fetch(googleMatrixAPI));
         }
-        var destination = 'SanDiego,CA';
-        var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&key=' + googleAPIKey;
+        return new Promise(function(resolve, reject) {
+            Promise.all(matrixPromises)
+            .then((matrixResponses) => {
+                for (var k = 0; k<matrixResponses.length; k++) {
+                    var matrixResult = JSON.parse(matrixResponses[k]._bodyInit);
+                    _yelpListings[k].distance = matrixResult.rows[0].elements[0].duration.text + " away";
+                    _yelpListings[k].seconds = matrixResult.rows[0].elements[0].duration.value;
+                    binaryInsert(_yelpListings[k], sortedListings, 0, sortedListings.length - 1);
+                }
+            })
+            .done(() => {
+                resolve(sortedListings);
+            });
+        });
+    }
+
+    getYelpListings(_googleDirections) {
         let lastLatitude = -79.026584;
         let lastLongitude = 68.966806;
+        let radius = 3200; //2 miles
         let listings = [];
-        fetch(googleAPI)
-        .then((response) => response.json())
-        .then((result) => {
-            var promises = [];
-            var points = polyline.decode(result.routes[0].overview_polyline.points);
-            for (var index = 0; index<points.length; index++) {
-                var latitude = points[index][0];
-                var longitude = points[index][1];
-                if (this.distanceBetween(latitude, longitude, lastLatitude, lastLongitude) >= 6400) {
-                    lastLatitude = latitude;
-                    lastLongitude = longitude;
-                    var latlng = "ll=" + String(latitude) + "," + String(longitude);
-                    var rad = "&radius_filter=" + radius;
-                    //add open at parameter to check if it'll be open when you get there
-                    promises.push(
-                    fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=3" + "&radius=3200",
-                        {
-                            method: "GET",
-                            headers: {
-                                'Authorization': 'Bearer ' + yelpAccessToken,
-                            },
-                        }
-                    ));
-                }
+        var promises = [];
+        var points = polyline.decode(_googleDirections.routes[0].overview_polyline.points);
+        for (var index = 0; index<points.length; index++) {
+            var latitude = points[index][0];
+            var longitude = points[index][1];
+            if (this.distanceBetween(latitude, longitude, lastLatitude, lastLongitude) >= 6400) {
+                lastLatitude = latitude;
+                lastLongitude = longitude;
+                var latlng = "ll=" + String(latitude) + "," + String(longitude);
+                var rad = "&radius_filter=" + radius;
+                //add open at parameter to check if it'll be open when you get there
+                promises.push(
+                fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=1" + "&radius=3200",
+                    {
+                        method: "GET",
+                        headers: {
+                            'Authorization': 'Bearer ' + yelpAccessToken,
+                        },
+                    }
+                ));
             }
-            return promises;
-        })
-        .then((promises) => {
+        }
+        return new Promise(function(resolve, reject) {
             Promise.all(promises)
             .then((responses) => {
                 var matrixPromises = [];
@@ -163,34 +181,50 @@ class Search extends Component {
                             "name": yelpResult.businesses[i].name,
                             "city": yelpResult.businesses[i].location.city + ', ' + yelpResult.businesses[i].location.state,
                             "url": yelpResult.businesses[i].url,
+                            "latitude":  yelpResult.businesses[i].coordinates.latitude,
+                            "longitude":  yelpResult.businesses[i].coordinates.longitude,
                         }
                         listings.push(newListing);
-
-                        var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + yelpResult.businesses[i].coordinates.latitude + "," + yelpResult.businesses[i].coordinates.longitude + "&key=" + googleMatrixAPIKey;
-                        matrixPromises.push(fetch(googleMatrixAPI));
                     }
                 }
-                return matrixPromises;
             })
-            .then((matrixPromises) => {
-                var sortedListings = [];
-                Promise.all(matrixPromises)
-                .then((matrixResponses) => {
-                    for (var k = 0; k<matrixResponses.length; k++) {
-                        var matrixResult = JSON.parse(matrixResponses[k]._bodyInit);
-                        listings[k].distance = matrixResult.rows[0].elements[0].duration.text + " away";
-                        listings[k].seconds = matrixResult.rows[0].elements[0].duration.value;
-                        binaryInsert(listings[k], sortedListings, 0, sortedListings.length - 1);
-                    }
-                })
-                .done(() => {
-                    this.showResults(sortedListings);
-                });;
-            })
-            .done();
+            .done(() => {
+                resolve(listings);
+            });
+        });
+    }
 
-        })
-        .done();
+    getGoogleDirections() {
+        let origin = null;
+        let tempInd = 0;
+        if (false) {
+            origin = this.state.latitude + ',' + this.state.longitude
+        } else {
+            origin = 'SanFrancisco,CA';
+        }
+        var destination = 'Sacramento,CA';
+        var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&key=' + googleAPIKey;
+        let listings = [];
+        return new Promise(function (resolve, reject) {
+            fetch(googleAPI)
+            .then((response) => response.json())
+            .done((result) => {
+                resolve(result);
+            });
+        });
+    }
+
+    async search() {
+        try {
+            let googleDirections = await this.getGoogleDirections();
+            let yelpListings = await this.getYelpListings(googleDirections);
+            let listings = await this.getGoogleDistances(yelpListings);
+            this.showResults(listings);
+
+        } catch (err) {
+            console.log(err)
+        }
+
     }
 
     render () {
