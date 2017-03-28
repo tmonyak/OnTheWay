@@ -17,12 +17,9 @@ import DefaultTheme from './../themes/theme';
 
 var polyline = require('@mapbox/polyline');
 
-var yelpAppID = 'TZCkdTTqoL-_5TA99Xe82A';
-var yelpAccessToken = 'P68aCZBr2U3m5xJgy0LqUpo0wqEmGb7toawLPKVHEuFHj0gFvieQ_QumxySy11OJy3WaFPNG6nVbHOB_6OoPCw50XxrWmm37CPhcLguZ_CBIqaNBWh9ayhdOJOrRWHYx';
-var yelpTokenType = 'Bearer';
-
-var googleMatrixAPIKey = 'AIzaSyB4AwHliJnJ98gxgAhtvS18D5Km1brqXeE';
 var googleMatrixAPIURL = 'https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=';
+
+import Config from './../config';
 
 const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 
@@ -105,7 +102,7 @@ class ChooseRoute extends Component {
         var matrixPromises = [];
         var sortedListings = [];
         for (var j = 0; j < _yelpListings.length; j++) {
-            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + _yelpListings[j].latitude + "," + _yelpListings[j].longitude + "&key=" + googleMatrixAPIKey;
+            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + _yelpListings[j].latitude + "," + _yelpListings[j].longitude + "&key=" + Config.keys.googleKey;
             matrixPromises.push(fetch(googleMatrixAPI));
         }
         return new Promise(function(resolve, reject) {
@@ -128,25 +125,26 @@ class ChooseRoute extends Component {
     getYelpListings(_polyline) {
         let lastLatitude = -79.026584;
         let lastLongitude = 68.966806;
-        let radius = 3200; //2 miles
-        let listings = [];
+        let radius = 3200; //1.5 miles
+        let limit = 1;
+        let listings = new Map();
         var promises = [];
         var points = polyline.decode(_polyline);
         for (var index = 0; index<points.length; index++) {
             var latitude = points[index][0];
             var longitude = points[index][1];
-            if (this.distanceBetween(latitude, longitude, lastLatitude, lastLongitude) >= 6400) {
+            if (this.distanceBetween(latitude, longitude, lastLatitude, lastLongitude) >= radius) {
                 lastLatitude = latitude;
                 lastLongitude = longitude;
-                var latlng = "ll=" + String(latitude) + "," + String(longitude);
-                var rad = "&radius_filter=" + radius;
+                var rad = "&radius=" + radius;
+                var lim = "&limit=" + limit;
                 //add open at parameter to check if it'll be open when you get there
                 promises.push(
-                fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=1" + "&radius=3200",
+                fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + lim + radius,
                     {
                         method: "GET",
                         headers: {
-                            'Authorization': 'Bearer ' + yelpAccessToken,
+                            'Authorization': 'Bearer ' + Config.keys.yelpKey,
                         },
                     }
                 ));
@@ -159,7 +157,7 @@ class ChooseRoute extends Component {
                 for (var j = 0; j < responses.length; j++) {
                     var yelpResult = JSON.parse(responses[j]._bodyInit);
                     for(var i = 0; i<yelpResult.businesses.length; i++) {
-                        if (yelpResult.businesses[i].is_closed == true) {
+                        if (yelpResult.businesses[i].is_closed == true || listings.has(yelpResult.businesses[i].id)) {
                             continue;
                         }
                         let newListing = {
@@ -171,12 +169,13 @@ class ChooseRoute extends Component {
                             "categories": yelpResult.businesses[i].categories,
                             "rating": yelpResult.businesses[i].rating,
                         }
-                        listings.push(newListing);
+                        listings.set(yelpResult.businesses[i].id, newListing);
+                        //listings.push(newListing);
                     }
                 }
             })
             .done(() => {
-                resolve(listings);
+                resolve(listings.values());
             });
         });
     }

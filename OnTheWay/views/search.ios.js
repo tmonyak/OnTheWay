@@ -14,11 +14,11 @@ import { Content, Container, Header, InputGroup, Input, Icon, Button, Thumbnail,
 
 import DefaultTheme from './../themes/theme';
 
+import keys from './../config';
+
 var {GooglePlacesAutocomplete} = require('react-native-google-places-autocomplete');
 
 var googleAPIURL = 'https://maps.googleapis.com/maps/api/directions/json?';
-var googleAPIKey = 'AIzaSyAfDs-3kqizJ3lMrCsZ5dYZpsAOOZz8dkA';
-var googlePlacesAPIKey = 'AIzaSyCijqr9wsl19EnBxdZbJz00zJoyhIMIla8';
 
 class Search extends Component {
     constructor(props) {
@@ -38,9 +38,7 @@ class Search extends Component {
             this.setState ({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
-                currentLocation: {description: 'Current Location', geometry: { location: { lat: position.coords.latitude, lng: position.coords.longitude } }},
-                });
-                this.render();
+            });
             },
             (error) => null,
             {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000}
@@ -59,15 +57,9 @@ class Search extends Component {
     }
 
     getGoogleDirections() {
-        let origin = null;
-        let tempInd = 0;
-        if (false) {
-            origin = this.state.latitude + ',' + this.state.longitude
-        } else {
-            origin = 'SanFrancisco,CA';
-        }
-        var destination = 'SanJose,CA';
-        var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&alternatives=true' + '&key=' + googleAPIKey;
+        let origin = this.state.origin;
+        let destination = this.state.destination;
+        var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&alternatives=true' + '&key=' + keys.googleKey;
         let listings = [];
         return new Promise(function (resolve, reject) {
             fetch(googleAPI)
@@ -103,18 +95,25 @@ class Search extends Component {
         autoFocus={false}
         listViewDisplayed='auto'    // true/false/undefined
         fetchDetails={true}
-        renderDescription={(row) => row.description || row.vicinity} // custom description render
+        renderDescription={(row) => row.description} // custom description render
         onPress={(data, details = null) => { // 'details' is provided when fetchDetails = true
-          this.setState({
-              origin: data,
-          });
+          if (data.description == 'Current Location') {
+              this.setState({
+                  origin: data.geometry.location.lat + ',' + data.geometry.location.lng,
+              });
+          } else {
+              this.setState({
+                  origin: data.description,
+              });
+          }
+
         }}
         getDefaultValue={() => {
           return ''; // text input default value
         }}
         query={{
           // available options: https://developers.google.com/places/web-service/autocomplete
-          key: googleAPIKey,
+          key: keys.googleKey,
           language: 'en', // language of the results
           //types: '(cities)', // default: 'geocode'
         }}
@@ -132,9 +131,9 @@ class Search extends Component {
           },
         }}
 
-        currentLocation={false} // Will add a 'Current location' button at the top of the predefined places list
+        currentLocation={true} // Will add a 'Current location' button at the top of the predefined places list
         currentLocationLabel="Current Location"
-        nearbyPlacesAPI='GooglePlacesSearch' // Which API to use: GoogleReverseGeocoding or GooglePlacesSearch
+        nearbyPlacesAPI='None' // Which API to use: GoogleReverseGeocoding or GooglePlacesSearch
         GoogleReverseGeocodingQuery={{
         }}
         GooglePlacesSearchQuery={{
@@ -156,16 +155,22 @@ class Search extends Component {
    fetchDetails={true}
    renderDescription={(row) => row.description} // custom description render
    onPress={(data, details = null) => { // 'details' is provided when fetchDetails = true
-       this.setState({
-           destination: data,
-       });
+       if (data.description == 'Current Location') {
+           this.setState({
+               destination: data.geometry.location.lat + ',' + data.geometry.location.lng,
+           });
+       } else {
+           this.setState({
+               destination: data.description,
+           });
+       }
    }}
    getDefaultValue={() => {
      return ''; // text input default value
    }}
    query={{
      // available options: https://developers.google.com/places/web-service/autocomplete
-     key: googleAPIKey,
+     key: keys.googleKey,
      language: 'en', // language of the results
      //types: '(cities)', // default: 'geocode'
    }}
@@ -182,8 +187,9 @@ class Search extends Component {
        color: '#1faadb',
      },
    }}
-
-   nearbyPlacesAPI='GooglePlacesSearch' // Which API to use: GoogleReverseGeocoding or GooglePlacesSearch
+   currentLocation={true} // Will add a 'Current location' button at the top of the predefined places list
+   currentLocationLabel="Current Location"
+   nearbyPlacesAPI='None' // Which API to use: GoogleReverseGeocoding or GooglePlacesSearch
    GoogleReverseGeocodingQuery={{
      // available options for GoogleReverseGeocoding API : https://developers.google.com/maps/documentation/geocoding/intro
    }}
