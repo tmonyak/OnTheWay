@@ -72,10 +72,13 @@ class Results extends Component {
                       {rowData.name}
                      </Text>
                      <Text>
-                         {rowData.city}
+                         {rowData.distance}
                      </Text>
                      <Text>
-                         {rowData.distance}
+                         {rowData.rating}
+                     </Text>
+                     <Text>
+                         {rowData.price}
                      </Text>
                     </View>
                     </TouchableHighlight>

@@ -18,6 +18,8 @@ import DefaultTheme from './../themes/theme';
 var polyline = require('@mapbox/polyline');
 
 var googleMatrixAPIURL = 'https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=';
+var googlePlacesSearchAPIURL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=';
+var googlePlaceAPIURL = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=';
 
 import {keys} from './../config';
 var yelpKey = keys.yelpKey;
@@ -100,21 +102,43 @@ class ChooseRoute extends Component {
         return Math.round(R * c);
     }
 
-    getGoogleDistances(_yelpListings) {
-        var matrixPromises = [];
+    addUrls(_listings) {
+        var promises = [];
         var sortedListings = [];
-        for (var j = 0; j < _yelpListings.length; j++) {
-            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + _yelpListings[j].latitude + "," + _yelpListings[j].longitude + "&key=" + googleKey;
-            matrixPromises.push(fetch(googleMatrixAPI));
+        for (var j = 0; j < _listings.length; j++) {
+            var googlePlaceAPI = googlePlaceAPIURL + _listings[j].place_id + "&key=" + googleKey;
+            console.log(googlePlaceAPI)
+            promises.push(fetch(googlePlaceAPI));
         }
         return new Promise(function(resolve, reject) {
-            Promise.all(matrixPromises)
+            Promise.all(promises)
+            .then((responses) => {
+                for (var k = 0; k<responses.length; k++) {
+                    var response = JSON.parse(responses[k]._bodyInit);
+                    console.log(response);
+                    _listings[k].url = response.result.url;
+
+                }
+            })
+            .done();
+        });
+    }
+
+    addDistances(_listings) {
+        var promises = [];
+        var sortedListings = [];
+        for (var j = 0; j < _listings.length; j++) {
+            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + _listings[j].latitude + "," + _listings[j].longitude + "&key=" + googleKey;
+            promises.push(fetch(googleMatrixAPI));
+        }
+        return new Promise(function(resolve, reject) {
+            Promise.all(promises)
             .then((matrixResponses) => {
                 for (var k = 0; k<matrixResponses.length; k++) {
                     var matrixResult = JSON.parse(matrixResponses[k]._bodyInit);
-                    _yelpListings[k].distance = matrixResult.rows[0].elements[0].duration.text + " away";
-                    _yelpListings[k].seconds = matrixResult.rows[0].elements[0].duration.value;
-                    binaryInsert(_yelpListings[k], sortedListings, 0, sortedListings.length - 1);
+                    _listings[k].distance = matrixResult.rows[0].elements[0].duration.text + " away";
+                    _listings[k].seconds = matrixResult.rows[0].elements[0].duration.value;
+                    binaryInsert(_listings[k], sortedListings, 0, sortedListings.length - 1);
 
                 }
             })
@@ -124,7 +148,7 @@ class ChooseRoute extends Component {
         });
     }
 
-    getYelpListings(_polyline) {
+    getPlaces(_polyline) {
         let lastLatitude = -79.026584;
         let lastLongitude = 68.966806;
         let radius = 2400; //1.5 miles
@@ -139,15 +163,10 @@ class ChooseRoute extends Component {
                 lastLatitude = latitude;
                 lastLongitude = longitude;
                 //add open at parameter to check if it'll be open when you get there
+                let googlePlacesSearchRequest = googlePlacesSearchAPIURL + String(latitude) + "," + String(longitude) + "&radius=2400&type=restaurant&key=" + googleKey;
                 promises.push(
-                fetch("https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&limit=1" + "&radius=2400",
-                    {
-                        method: "GET",
-                        headers: {
-                            'Authorization': 'Bearer ' + yelpKey,
-                        },
-                    }
-                ));
+                    fetch(googlePlacesSearchRequest)
+                );
             }
         }
         return new Promise(function(resolve, reject) {
@@ -155,22 +174,42 @@ class ChooseRoute extends Component {
             .then((responses) => {
                 var matrixPromises = [];
                 for (var j = 0; j < responses.length; j++) {
-                    var yelpResult = JSON.parse(responses[j]._bodyInit);
-                    for(var i = 0; i<yelpResult.businesses.length; i++) {
-                        if (yelpResult.businesses[i].is_closed == true || yelpResult.businesses[i].id in listings) {
+                    var place = JSON.parse(responses[j]._bodyInit);
+                    let searchLimit = place.results.length == 0 ? 0 : limit;
+                    for(var i = 0; i<searchLimit; i++) {
+                        if (place.results[i].place_id in listings) { //check if permanently closed
                             continue;
                         }
                         let newListing = {
-                            "name": yelpResult.businesses[i].name,
-                            "city": yelpResult.businesses[i].location.city + ', ' + yelpResult.businesses[i].location.state,
-                            "url": yelpResult.businesses[i].url,
-                            "latitude": yelpResult.businesses[i].coordinates.latitude,
-                            "longitude": yelpResult.businesses[i].coordinates.longitude,
-                            "categories": yelpResult.businesses[i].categories,
-                            "rating": yelpResult.businesses[i].rating,
+                            "name": place.results[i].name,
+                            "latitude": place.results[i].geometry.location.lat,
+                            "longitude": place.results[i].geometry.location.lng,
+                            "rating": "Rating: " + place.results[i].rating,
+                            "price": place.results[i].price_level,
+                            "types": place.results[i].types,
+                            "placeid": place.results[i].place_id,
                         }
-                        listings[yelpResult.businesses[i].id] = newListing;
-                        //listings.push(newListing);
+                        switch(place.results[i].price_level) {
+                            case 0:
+                                newListing.price = "Price: $";
+                                break;
+                            case 1:
+                                newListing.price = "Price: $$";
+                                break;
+                            case 2:
+                                newListing.price = "Price: $$$";
+                                break;
+                            case 3:
+                                newListing.price = "Price: $$$$";
+                                break;
+                            case 4:
+                                newListing.price = "Price: $$$$$";
+                                break;
+                            default:
+                                newListing.price = "Price: Unknown";
+                                break;
+                        }
+                        listings[place.results[i].place_id] = newListing;
                     }
                 }
             })
@@ -186,12 +225,13 @@ class ChooseRoute extends Component {
 
     async showResults(_polyline) {
         try {
-            let yelpListings = await this.getYelpListings(_polyline);
-            let finalListings = await this.getGoogleDistances(yelpListings);
+            let places = await this.getPlaces(_polyline);
+            let listings = await this.addDistances(places);
+            //await this.addUrls(listings);
             this.props.navigator.push({
                 name: 'Results',
                 passProps: {
-                    listings: yelpListings
+                    listings: listings
                 }
             })
 
