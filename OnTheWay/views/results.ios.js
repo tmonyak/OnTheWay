@@ -24,9 +24,12 @@ var styles = StyleSheet.create({
     },
 
     item: {
-        marginLeft: 20,
-        paddingTop: 10
-    }
+    },
+    separator: {
+        flex: 1,
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: '#8E8E8E',
+    },
 
 });
 
@@ -36,10 +39,6 @@ class Results extends Component {
         super(props);
         this.state = {
             dataSource: ds.cloneWithRows(this.props.listings),
-        }
-        for (var i = 0; i<this.props.listings.length; i++) {
-            console.log(this.props.listings[i].name);
-            console.log(this.props.listings[i].distance);
         }
     }
 
@@ -63,9 +62,12 @@ class Results extends Component {
                     <ListView
                      dataSource={this.state.dataSource}
                      enableEmptySections={true}
+                     renderSeparator={(sectionId, rowId) => <View key={rowId} style={styles.separator} /> }
                      renderRow={(rowData) =>  <View style={styles.item}>
-                     <TouchableHighlight onPress={() => Linking.openURL(rowData.url)} >
-                    <View>
+                     <TouchableHighlight
+                     onPress={() => Linking.openURL(rowData.url)}
+                     underlayColor='gray'>
+                    <View style={{paddingLeft: 15, marginBottom: 10, marginTop: 10}}>
                     <Text style={{fontSize: 20}}>
                       {rowData.name}
                      </Text>
