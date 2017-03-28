@@ -14,7 +14,8 @@ import { Content, Container, Header, InputGroup, Input, Icon, Button, Thumbnail,
 
 import DefaultTheme from './../themes/theme';
 
-import keys from './../config';
+import {keys} from './../config';
+var googleKey = keys.googleKey;
 
 var {GooglePlacesAutocomplete} = require('react-native-google-places-autocomplete');
 
@@ -59,7 +60,7 @@ class Search extends Component {
     getGoogleDirections() {
         let origin = this.state.origin;
         let destination = this.state.destination;
-        var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&alternatives=true' + '&key=' + keys.googleKey;
+        var googleAPI = googleAPIURL + 'origin=' + origin + '&destination=' + destination + '&alternatives=true' + '&key=' + googleKey;
         let listings = [];
         return new Promise(function (resolve, reject) {
             fetch(googleAPI)
@@ -113,7 +114,7 @@ class Search extends Component {
         }}
         query={{
           // available options: https://developers.google.com/places/web-service/autocomplete
-          key: keys.googleKey,
+          key: googleKey,
           language: 'en', // language of the results
           //types: '(cities)', // default: 'geocode'
         }}
@@ -170,7 +171,7 @@ class Search extends Component {
    }}
    query={{
      // available options: https://developers.google.com/places/web-service/autocomplete
-     key: keys.googleKey,
+     key: googleKey,
      language: 'en', // language of the results
      //types: '(cities)', // default: 'geocode'
    }}

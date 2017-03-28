@@ -19,7 +19,9 @@ var polyline = require('@mapbox/polyline');
 
 var googleMatrixAPIURL = 'https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=';
 
-import Config from './../config';
+import {keys} from './../config';
+var yelpKey = keys.yelpKey;
+var googleKey = keys.googleKey;
 
 const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 
@@ -102,7 +104,7 @@ class ChooseRoute extends Component {
         var matrixPromises = [];
         var sortedListings = [];
         for (var j = 0; j < _yelpListings.length; j++) {
-            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + _yelpListings[j].latitude + "," + _yelpListings[j].longitude + "&key=" + Config.keys.googleKey;
+            var googleMatrixAPI = googleMatrixAPIURL + this.state.latitude + "," + this.state.longitude + "&destinations=" + _yelpListings[j].latitude + "," + _yelpListings[j].longitude + "&key=" + googleKey;
             matrixPromises.push(fetch(googleMatrixAPI));
         }
         return new Promise(function(resolve, reject) {
@@ -144,7 +146,7 @@ class ChooseRoute extends Component {
                     {
                         method: "GET",
                         headers: {
-                            'Authorization': 'Bearer ' + Config.keys.yelpKey,
+                            'Authorization': 'Bearer ' + yelpKey,
                         },
                     }
                 ));
